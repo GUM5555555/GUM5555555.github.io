@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>超級無敵大抽獎</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #ff00aa;
+            perspective: 1000px;
+        }
+
+        .card-wrapper {
+            position: relative;
+            width: 200px;
+            height: 300px;
+            margin-bottom: 20px;
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .card-back {
+            background: repeating-linear-gradient(
+                45deg,
+                #e60000,
+                #e60000 10px,
+                #ff3333 10px,
+                #ff3333 20px
+            );
+            color: white;
+            font-size: 40px;
+            transform: rotateY(0deg);
+            transition: transform 0.5s ease-in-out;
+        }
+
+        .card-front {
+            background-color: white;
+            transform: rotateY(180deg);
+            transition: transform 0.5s ease-in-out;
+            position: relative;
+        }
+
+        .card-value-top {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+        }
+
+        .card-suit-top {
+            position: absolute;
+            top: 30px;
+            left: 10px;
+            font-size: 20px;
+        }
+
+        .card-value-bottom {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 20px;
+            transform: rotate(180deg);
+        }
+
+        .card-suit-bottom {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            font-size: 20px;
+            transform: rotate(180deg);
+        }
+
+        .card-image {
+            width: 140px;
+            height: 180px;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .card-image img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+        }
+
+        .joker {
+            font-size: 40px;
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .red {
+            color: red;
+        }
+
+        .black {
+            color: black;
+        }
+
+        .joker-red {
+            color: red;
+        }
+
+        .joker-black {
+            color: black;
+        }
+
+        @keyframes shuffle {
+            0% { transform: rotateY(0deg) rotateX(0deg); }
+            25% { transform: rotateY(20deg) rotateX(-10deg); }
+            50% { transform: rotateY(0deg) rotateX(0deg); }
+            75% { transform: rotateY(-20deg) rotateX(10deg); }
+            100% { transform: rotateY(0deg) rotateX(0deg); }
+        }
+
+        .shuffling {
+            animation: shuffle 0.2s ease-in-out 10;
+        }
+    </style>
+</head>
+<body>
+    <h1>超級無敵大抽獎</h1>
+    <div class="card-wrapper" id="cardWrapper">
+        <div class="card card-back" id="cardBack">♠</div>
+        <div class="card card-front" id="cardFront">
+            <div class="card-value-top" id="cardValueTop"></div>
+            <div class="card-suit-top" id="cardSuitTop"></div>
+            <div class="card-value-bottom" id="cardValueBottom"></div>
+            <div class="card-suit-bottom" id="cardSuitBottom"></div>
+            <div class="card-image" id="cardImage">
+                <img id="cardImageSrc" src="" alt="Card Image">
+            </div>
+        </div>
+    </div>
+    <button id="drawButton">抽一張牌</button>
+
+    <!-- 添加音频元素 -->
+    <audio id="shuffleSound" src="shuffle.mp3" preload="auto"></audio>
+    <audio id="flipSound" src="flip.mp3" preload="auto"></audio>
+
+    <script>
+        const suits = ['♠', '♥', '♦', '♣'];
+        const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        const jokers = ['🃏', '🃏']; // 兩張鬼牌
+
+        // 扑克牌图片映射
+        const cardImages = {
+            'A♠': '1.jpg',
+            '2♠': '2.jpg',
+            '3♠': '3.jpg',
+            '4♠': '4.jpg',
+            '5♠': '5.jpg',
+            '6♠': '6.jpg',
+            '7♠': '7.jpg',
+            '8♠': '1.jpg',
+            '9♠': '2.jpg',
+            '10♠': '3.jpg',
+            'J♠': '4.jpg',
+            'Q♠': '5.jpg',
+            'K♠': '6.jpg',
+            'A♥':'7.jpg',
+            '2♥': '1.jpg',
+            '3♥': '2.jpg',
+            '4♥': '3.jpg',
+            '5♥': '4.jpg',
+            '6♥': '5.jpg',
+            '7♥': '6.jpg',
+            '8♥': '7.jpg',
+            '9♥': '1.jpg',
+            '10♥':'2.jpg',
+            'J♥': '3.jpg',
+            'Q♥': '4.jpg',
+            'K♥': '5.jpg',
+            'A♦': '6.jpg',
+            '2♦': '7.jpg',
+            '3♦': '1.jpg',
+            '4♦': '2.jpg',
+            '5♦': '3.jpg',
+            '6♦': '4.jpg',
+            '7♦': '5.jpg',
+            '8♦': '6.jpg',
+            '9♦': '7.jpg',
+            '10♦': '1.jpg',
+            'J♦':'2.jpg',
+            'Q♦': '3.jpg',
+            'K♦':'4.jpg',
+            'A♣': '5.jpg',
+            '2♣': '6.jpg',
+            '3♣': '7.jpg',
+            '4♣':'1.jpg',
+            '5♣': '2.jpg',
+            '6♣': '3.jpg',
+            '7♣': '4.jpg',
+            '8♣': '5.jpg',
+            '9♣': '6.jpg',
+            '10♣': '7.jpg',
+            'J♣': '1.jpg',
+            'Q♣': '2.jpg',
+            'K♣': '3.jpg',
+            '🃏': '4.jpg'
+        };
+
+        const cardValueTopElement = document.getElementById('cardValueTop');
+        const cardSuitTopElement = document.getElementById('cardSuitTop');
+        const cardValueBottomElement = document.getElementById('cardValueBottom');
+        const cardSuitBottomElement = document.getElementById('cardSuitBottom');
+        const cardImageElement = document.getElementById('cardImage');
+        const cardImageSrcElement = document.getElementById('cardImageSrc');
+        const cardFront = document.getElementById('cardFront');
+        const cardBack = document.getElementById('cardBack');
+        const cardWrapper = document.getElementById('cardWrapper');
+        const drawButton = document.getElementById('drawButton');
+
+        // 获取音频元素
+        const shuffleSound = document.getElementById('shuffleSound');
+        const flipSound = document.getElementById('flipSound');
+
+        let isAnimating = false;
+
+        // 音频初始化和用户交互激活
+        function initAudio() {
+            // 尝试自动播放音频，可能会被浏览器阻止
+            shuffleSound.play().catch(e => console.log("自动播放音频被阻止:", e));
+            shuffleSound.pause();
+            flipSound.play().catch(e => console.log("自动播放音频被阻止:", e));
+            flipSound.pause();
+            
+            // 监听用户点击，第一次交互后可以播放音频
+            document.addEventListener('click', function enableAudio() {
+                shuffleSound.play().catch(e => console.log("用户点击后播放音频被阻止:", e));
+                shuffleSound.pause();
+                flipSound.play().catch(e => console.log("用户点击后播放音频被阻止:", e));
+                flipSound.pause();
+                document.removeEventListener('click', enableAudio);
+            }, { once: true });
+        }
+
+        function drawRandomCard() {
+            if (isAnimating) return;
+
+            isAnimating = true;
+            drawButton.disabled = true;
+
+            // 播放洗牌音效
+            shuffleSound.currentTime = 0;
+            shuffleSound.play().catch(e => console.log("洗牌音效播放失败:", e));
+
+            // 重置卡片状态
+            cardBack.style.transform = 'rotateY(0deg)';
+            cardFront.style.transform = 'rotateY(180deg)';
+
+            // 開始洗牌動畫
+            cardWrapper.classList.add('shuffling');
+
+            setTimeout(() => {
+                // 決定是否抽鬼牌
+                const isJoker = Math.random() < (2/54);
+
+                if (isJoker) {
+                    // 抽鬼牌
+                    const jokerIndex = Math.floor(Math.random() * jokers.length);
+                    const jokerColor = jokerIndex === 0 ? 'joker-red' : 'joker-black';
+
+                    // 清空角落的数字和花色
+                    cardValueTopElement.textContent = '';
+                    cardSuitTopElement.textContent = '';
+                    cardValueBottomElement.textContent = '';
+                    cardSuitBottomElement.textContent = '';
+                    
+                    // 隐藏图片容器，显示鬼牌文字
+                    cardImageElement.style.display = 'none';
+                    
+                    // 创建鬼牌元素
+                    const jokerElement = document.createElement('div');
+                    jokerElement.className = `joker ${jokerColor}`;
+                    jokerElement.textContent = jokers[jokerIndex];
+                    cardFront.appendChild(jokerElement);
+                    
+                    // 保存创建的元素，以便下次抽牌时移除
+                    cardFront.dataset.jokerElement = jokerElement;
+                    
+                    cardWrapper.title = "鬼牌";
+                } else {
+                    // 抽普通牌
+                    const randomSuitIndex = Math.floor(Math.random() * suits.length);
+                    const randomValueIndex = Math.floor(Math.random() * values.length);
+
+                    const suit = suits[randomSuitIndex];
+                    const value = values[randomValueIndex];
+                    const cardKey = value + suit;
+
+                    // 更新顯示
+                    cardValueTopElement.textContent = value;
+                    cardSuitTopElement.textContent = suit;
+                    cardValueBottomElement.textContent = value;
+                    cardSuitBottomElement.textContent = suit;
+                    
+                    // 显示图片容器，隐藏之前的鬼牌元素
+                    cardImageElement.style.display = 'flex';
+                    if (cardFront.dataset.jokerElement) {
+                        cardFront.removeChild(cardFront.dataset.jokerElement);
+                        delete cardFront.dataset.jokerElement;
+                    }
+                    
+                    // 设置图片
+                    cardImageSrcElement.src = cardImages[cardKey] || 'https://picsum.photos/seed/' + cardKey + '/400/500';
+                    cardImageSrcElement.alt = `${value}${suit}`;
+                    cardWrapper.title = `${value} ${suit}`;
+
+                    // 根据花色设置颜色
+                    if (suit === '♥' || suit === '♦') {
+                        cardValueTopElement.className = 'card-value-top red';
+                        cardSuitTopElement.className = 'card-suit-top red';
+                        cardValueBottomElement.className = 'card-value-bottom red';
+                        cardSuitBottomElement.className = 'card-suit-bottom red';
+                    } else {
+                        cardValueTopElement.className = 'card-value-top black';
+                        cardSuitTopElement.className = 'card-suit-top black';
+                        cardValueBottomElement.className = 'card-value-bottom black';
+                        cardSuitBottomElement.className = 'card-suit-bottom black';
+                    }
+                }
+
+                // 隨機改變牌背花色
+                const randomSuit = suits[Math.floor(Math.random() * suits.length)];
+                cardBack.textContent = randomSuit;
+
+                // 停止洗牌動畫
+                cardWrapper.classList.remove('shuffling');
+
+                // 翻牌動畫
+                setTimeout(() => {
+                    // 播放翻牌音效
+                    flipSound.currentTime = 0;
+                    flipSound.play().catch(e => console.log("翻牌音效播放失败:", e));
+
+                    // 翻转动画
+                    cardBack.style.transform = 'rotateY(-180deg)';
+                    cardFront.style.transform = 'rotateY(0deg)';
+
+                    // 重置動畫狀態
+                    setTimeout(() => {
+                        isAnimating = false;
+                        drawButton.disabled = false;
+                    }, 500);
+                }, 200);
+            }, 2000);
+        }
+
+        // 页面加载完成后初始化音频
+        document.addEventListener('DOMContentLoaded', initAudio);
+
+        // 初始抽一張牌
+        setTimeout(drawRandomCard, 500);
+
+        // 按鈕點擊事件
+        drawButton.addEventListener('click', () => {
+            if (!isAnimating) {
+                // 重置卡片状态
+                cardBack.style.transform = 'rotateY(0deg)';
+                cardFront.style.transform = 'rotateY(180deg)';
+                setTimeout(drawRandomCard, 100);
+            }
+        });
+    </script>
+</body>
+</html>
